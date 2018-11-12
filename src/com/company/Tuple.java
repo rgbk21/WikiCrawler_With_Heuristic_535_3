@@ -33,6 +33,39 @@ public class Tuple {
     public int getCountNum() {
         return countNum;
     }
+
+    public void printTuple(){
+        System.out.println("Link: " + getLink());
+        System.out.println("Weight: " + getWeight());
+        System.out.println("CountNum: " + getCountNum());
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+
+        if (obj == null) {
+            return false;
+        }
+
+        /* Check if obj is an instance of Tuple or not
+         "null instanceof [type]" also returns false */
+        if (!(obj instanceof Tuple)) {
+            return false;
+        }
+
+        // typecast obj to Tuple so that we can compare data members
+        Tuple t = (Tuple) obj;
+        if(!t.getLink().equals(this.link)){
+            return false;
+        }
+//
+//        if(! (t.getWeight() == this.getWeight())){
+//            return false;
+//        }
+
+        return true;
+
+    }
 }
 
 class TupleComparator implements Comparator<Tuple>{
