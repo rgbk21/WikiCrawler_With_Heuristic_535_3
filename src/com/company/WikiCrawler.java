@@ -6,7 +6,8 @@ import java.util.*;
 
 public class WikiCrawler {
 
-    private static final String BASE_URL = "https://en.wikipedia.org";
+//    private static final String BASE_URL = "https://en.wikipedia.org";
+    private static final String BASE_URL = "http://web.cs.iastate.edu/~pavan";
     private String SEED_URL;// https://en.wikipedia.org + /wiki/Physics :/wiki/Physics is SEED_URL
     private int MAX;//Stores the max number of nodes over which the graph has to be constructed
     private int count = 0;//Counts the number of nodes that have been added to the Queue so far
@@ -17,8 +18,17 @@ public class WikiCrawler {
     private HashSet<String> VISITED = new HashSet<>();
     private HashSet<String> DoNotVisit = new HashSet<>();//Stores the links present in the robots.txt file
     private Hashtable<String, Float> BFSQAsHash = new Hashtable<String, Float>();//Stores the links in BFSQueue to make searching quicker when isTopicSensitive is true.
-    private Comparator<Tuple> myComp = new TupleComparator();
-    private PriorityQueue<Tuple> BFSQueue = new PriorityQueue<Tuple>(myComp);
+    private Comparator<Tuple> myComp = new TupleComparator();//Comparator that is passed to the Priority Queue
+    private PriorityQueue<Tuple> BFSQueue = new PriorityQueue<Tuple>(myComp);//The Priority Queue for the BFS
+
+
+    public static void main(String[] args) {
+
+        String[] topics = {"tennis", "grand slam"};
+//        WikiCrawler w = new WikiCrawler("/wiki/Tennis", topics, 100, "ComplexityTheoryGraph.txt", false);
+        WikiCrawler w = new WikiCrawler("/wiki/L.html", topics, 10, "PAVAN_TEST_SITE.txt", false);
+        w.crawl();
+    }
 
     public WikiCrawler(String seedUrl, String[] keywords, int max, String fileName, boolean isTopicSensitive) {
 
@@ -29,17 +39,9 @@ public class WikiCrawler {
         topicSensitive = isTopicSensitive;
     }
 
-    public static void main(String[] args) {
-
-        String[] topics = {"tennis", "grand slam"};
-        WikiCrawler w = new WikiCrawler("/wiki/Complexity_theory", topics, 100, "ComplexityTheoryGraph.txt", false);
-        w.crawl();
-
-    }
-
     public void crawl() {
 
-        boolean debug = true;
+        boolean debug = false;
         //Download the robots.txt file and store the links appearing in it in a hashTable
         activateRobots();
 
@@ -48,13 +50,14 @@ public class WikiCrawler {
             PrintStream out = new PrintStream(new File(name));
             PrintStream console = System.out;
             //Change this to print to file
-            System.setOut(out);
+//            System.setOut(out);
 
             System.out.println(MAX);//The first line should indicate the number of vertices
             VISITED.add(SEED_URL);
 
             if (!topicSensitive) {
                 BFSQueue.add(new Tuple(SEED_URL, count));
+                if(debug) System.out.println("Not Topic Sensitive - Adding SEED_URL to the Queue");
                 count++;
             } else {
                 BFSQueue.add(new Tuple(SEED_URL, 0, count));//Check if this is correct. Adding the first link with a weight of 0.
@@ -98,7 +101,7 @@ public class WikiCrawler {
         boolean debug = true;
         String myString = "";
 
-        try (InputStream is = new URL(BASE_URL + "/robots.txt").openStream();
+        try (InputStream is = new URL(BASE_URL + "/wiki/robots.txt").openStream();
              BufferedReader br = new BufferedReader(new InputStreamReader(is));
         ) {
 //            Scanner sc = new Scanner(url.openStream());
@@ -116,8 +119,9 @@ public class WikiCrawler {
         }
         String[] temp;
         temp = myString.split("User-agent: \\*");// Split the robot.txt file at the required position
+
         myString = temp[1];
-//        System.out.println(myString);
+        System.out.println(myString);
         System.out.println("********** Start Robots.txt *************");
 
         //Populating the DoNotVisit HashSet
@@ -142,13 +146,21 @@ public class WikiCrawler {
     //This method returns the html code of the page after the <p> tag as a String
     //Corresponds to the actualTextContent of the web page
     private String actualTextComponent(String seed_url) {
-        boolean debug = true;
+
+        boolean debug = false;
         String myString = "";
-        try(InputStream is = new URL(BASE_URL + seed_url).openStream()) {
+
+        String newURL = BASE_URL + seed_url;
+        if(debug) System.out.println("Trying to access the URL: " + newURL );
+        //http://web.cs.iastate.edu/~pavan/wiki/A.html
+        try(InputStream is = new URL(newURL).openStream();
+            BufferedReader br = new BufferedReader(new InputStreamReader(is))
+        ) {
 //            URL url = new URL(BASE_URL + seed_url);
 //            InputStream is = url.openStream();
             politeness++;
             if (politeness > 10) {
+
                 try {
                     Thread.sleep(2000);
                     if(debug) System.out.println("Sleeping......");
@@ -157,17 +169,16 @@ public class WikiCrawler {
                 }
                 politeness = 0;
             }
-            BufferedReader br = new BufferedReader(new InputStreamReader(is));
             StringBuilder content = new StringBuilder(1024);
             String s = "";
             while ((s = br.readLine()) != null) {
                 s = s + "\n";
                 content.append(s);
+//                if(debug)System.out.println("In while loop: " + s);
             }
             myString = content.toString();
-            //System.out.println(content);
+            if(debug) System.out.println(myString);
         } catch (IOException ex) {
-
             System.out.println(ex);
         }
 
@@ -190,7 +201,7 @@ public class WikiCrawler {
     //This is for the Simple BFS when the isTopicSensitive is set to FALSE
     private void extractLinks(String actualTextComp, String seed) {
 
-        boolean debug = true;
+        boolean debug = false;
         boolean deepDebug = false;
         int startIndex = 0;
         int stopIndex = 0;
@@ -250,7 +261,7 @@ public class WikiCrawler {
 
     private boolean checkCriteria(String url, String seed_url) {
 
-        boolean debug = true;
+        boolean debug = false;
 
         if (VISITED.contains(url)) {
             if (debug) System.out.println(url + " :Failed (VISITED.contains(url))");
@@ -281,10 +292,10 @@ public class WikiCrawler {
     //This is for the Weighted BFS when the isTopicSensitive is set to TRUE
     private void extractLinks(String actualTextComp, String seed, boolean topicSensitive) {
 
-        boolean debug = true;
+        boolean debug = false;
         boolean debugText = false;//Debug the breakup of text in the complete Anchor Tag
         boolean deepDebug = false;//Creates a shit ton of data
-        boolean debugWG = true;//Debug the weighted graph part only
+        boolean debugWG = false;//Debug the weighted graph part only
 
         int startIndex = 0;//Start index of /wiki/XXXXXX
         int stopIndex = 0;//Stop index of /wiki/XXXXXX
