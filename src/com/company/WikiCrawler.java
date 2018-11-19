@@ -22,16 +22,20 @@ public class WikiCrawler {
     private PriorityQueue<Tuple> BFSQueue = new PriorityQueue<Tuple>(myComp);//The Priority Queue for the BFS
     private HashSet<String> TOPICSasHASH = new HashSet<>();
 
+    private long timeDlPage;
+    private long timeExtractLinks;
+
+
 //    private Hashtable<String,Integer>
 
-    public static void main(String[] args) {
-
-        String[] topics = {"tennis", "wimbledon"};
-//        String[] topics = {};
-        WikiCrawler w = new WikiCrawler("/wiki/Tennis", topics, 100, "ComplexityTheoryGraph.txt", true);
-//        WikiCrawler w = new WikiCrawler("/wiki/L.html", topics, 10, "PAVAN_TEST_SITE.txt", false);
-        w.crawl();
-    }
+//    public static void main(String[] args) {
+//
+//        String[] topics = {"tennis", "wimbledon", "masters", "federer", "nadal", "djokovic", "williams", "osaka"};
+////        String[] topics = {};
+////        WikiCrawler w = new WikiCrawler("/wiki/Tennis", topics, 100, "Maximised_Tennis_100.txt", true);
+//        WikiCrawler w = new WikiCrawler("/wiki/cs535_Seed1.html", topics, 30, "PAVAN_TEST_SITE.txt", true);
+//        w.crawl();
+//    }
 
     public WikiCrawler(String seedUrl, String[] keywords, int max, String fileName, boolean isTopicSensitive) {
 
@@ -44,7 +48,8 @@ public class WikiCrawler {
 
     public void crawl() {
 
-        boolean debug = true;
+        boolean debug = false;
+        boolean debug_time = false;
         //Download the robots.txt file and store the links appearing in it in a hashTable
         activateRobots();
 
@@ -78,23 +83,41 @@ public class WikiCrawler {
                 Tuple nextTuple = BFSQueue.poll();
                 seed = nextTuple.getLink();
 
-                if(debug) System.out.println("Queue returned:");
+                 if(debug)System.out.println("Queue returned:");
                 if(debug) System.out.println("Link to Page: " + nextTuple.getLink());
                 if(debug) System.out.println("With Weight: " + nextTuple.getWeight());
                 if(debug) System.out.println("And Count: " + nextTuple.getCountNum());
 
                 if (topicSensitive) BFSQAsHash.remove(seed);
                 if (debug) System.out.println("########## Extracted Link from Q: " + seed);
+
+                //Calculate time spent in downloading page:
+                long timeDlPage_start = System.currentTimeMillis();
+
                 String actualText = actualTextComponent(seed);
+
+                long timeDlPage_end = System.currentTimeMillis();
+                timeDlPage = timeDlPage + (timeDlPage_end - timeDlPage_start);
+
                 //If the url is broken, ignore that and move onto the next one
                 if (actualText == null) continue;
+
+                //Calculate time spent in everything else:
+                long timeExtractLinks_Start = System.currentTimeMillis();
+
                 //If isTopicSensitive is FALSE then perform the normal BFS
                 if(!topicSensitive) extractLinks(actualText, seed);
                 //If isTopicSensitive is TRUE, then perform the weighted BFS
                 if (topicSensitive) extractLinks(actualText, seed, true);
+
+                long timeExtractLinks_End = System.currentTimeMillis();
+                timeExtractLinks = timeExtractLinks + (timeExtractLinks_End - timeExtractLinks_Start);
+
             }
-            System.out.println("Value of Visited.size(): " + VISITED.size());
-            System.out.println("Value of count: " + count);
+            if(debug_time)System.out.println("Value of Visited.size(): " + VISITED.size());
+            if(debug_time)System.out.println("Value of count: " + count);
+            if(debug_time)System.out.println("Value of timeDlPage: " + timeDlPage);
+            if(debug_time)System.out.println("Value of timeExtractLinks: " + timeExtractLinks);
 //        out.close();
 //        out.flush();
 
@@ -127,17 +150,22 @@ public class WikiCrawler {
                 content.append(s);
             }
             myString = content.toString();
-            //System.out.println(content);
+            if(debug) System.out.println("Robots.txt is: ");
+            if(debug) System.out.println(myString);
         } catch (IOException ex) {
-            System.out.println(ex);
+            ex.printStackTrace();
         }
         String[] temp;
         temp = myString.split("User-agent: \\*");// Split the robot.txt file at the required position
+        if(debug) System.out.println("temp.length: " + temp.length);
+        if(debug) System.out.println("temp[0]: " + temp[0]);
+        if(debug) System.out.println("temp[1]: " + temp[1]);
+        String s = temp[1].trim();
 
-        if(temp.length > 1) {
+        if(temp.length > 1 && s.length() > 0) {
             myString = temp[1];
-//        System.out.println(myString);
-            System.out.println("********** Start Robots.txt *************");
+            if(debug) System.out.println(myString);
+            if(debug) System.out.println("********** Start Robots.txt *************");
 
             //Populating the DoNotVisit HashSet
             int startIndex = 0;
@@ -154,9 +182,10 @@ public class WikiCrawler {
                     startIndex = stopIndex;
                 }
             }
-            System.out.println("********** End Robots.txt *************");
+            if(debug) System.out.println("********** End Robots.txt *************");
         }else{
             System.out.println("ERROR: robots.txt not found at this link:" + BASE_URL + "/robots.txt");
+            System.out.println("ERROR: robots.txt was empty at this link::" + BASE_URL + "/robots.txt");
         }
 
     }
@@ -313,8 +342,8 @@ public class WikiCrawler {
         boolean debug = false;
         boolean debugText = false;//Debug the breakup of text in the complete Anchor Tag
         boolean deepDebug = false;//Creates a shit ton of data
-        boolean debugWG = true;//Debug the weighted graph part only
-        boolean debug_edge = true;//Debug the edge formations
+        boolean debugWG = false;//Debug the weighted graph part only -- changed
+        boolean debug_edge = false;//Debug the edge formations -- changed
 
         int startIndex = 0;//Start index of /wiki/XXXXXX
         int stopIndex = 0;//Stop index of /wiki/XXXXXX
@@ -400,10 +429,10 @@ public class WikiCrawler {
                 //If the anchorTagText or the httpText DOIES NOT contain the strings,
                 // Search in the surrounding text of the httpText (the link)
                 if(!hit && (!httpText.contains("#") && !httpText.contains(":"))) {
-                    System.out.println("*******EXTRACTING TEXT FOR*********");
-                    System.out.println(httpText);
+                    if (debugWG) System.out.println("*******EXTRACTING TEXT FOR*********");
+                    if (debugWG) System.out.println(httpText);
                     minDist = getHeuristicDistance(startAnchorTag, stopAnchorTag, actualTextComp);
-                    System.out.println("For link: "+ seed + "------" + httpText);
+                    if (debugWG) System.out.println("For link: "+ seed + "------" + httpText);
                     if (debugWG) System.out.println("minDist: " + minDist);
                     if(minDist < 18){
                         linkWeight = calculateWeight(minDist);
@@ -413,6 +442,41 @@ public class WikiCrawler {
                         if (debugWG) System.out.println("linkWeight: " + linkWeight);
                     }
                 }
+
+                Float prevWeight2 = BFSQAsHash.get(httpText);
+                if(prevWeight2 != null){
+                    if (prevWeight2 < linkWeight){
+                        //..and its weight in the queue is lesser than the current weight: linkWeight
+                        //So we remove the Tuple from the BFSQueue
+                        //The equals method that we have implemented in the Tuple class
+                        //checks for equality only by comparing the link names.
+                        //So we do not need to worry about the remaining fields as long
+                        //as the names of the links are the same
+                        //Hopefully...
+                        if(debugWG) System.out.println("******** IF STATEMENT 0 *********");
+                        if(debugWG) System.out.println("Removing:");
+                        if(debugWG) System.out.println("Link: " + httpText );
+                        if(debugWG) System.out.println("Earlier Weight: " + prevWeight2 );
+                        if(debugWG) System.out.println("New Weight: " + linkWeight );
+                        if(debugWG) System.out.println("Earlier Size of Q: " + BFSQueue.size());
+                        BFSQueue.remove(new Tuple(httpText, prevWeight2, 0));
+                        if(debugWG) System.out.println("After removal Size of Q: " + BFSQueue.size());
+                        if(debugWG) System.out.println("Was the correct element removed? - " + !BFSQueue.contains(new Tuple(httpText, prevWeight2, 0)));
+
+                        //And add a new Tuple to the BFSQueue
+                        BFSQueue.add(new Tuple(httpText, linkWeight, count));
+                        if(debugWG) System.out.println("After Adding new element Size of Q: " + BFSQueue.size());
+                        if(debugWG) System.out.println("Was the correct element Added? - " + BFSQueue.contains(new Tuple(httpText, prevWeight2, 0)));
+
+                        count++;
+                        //And update the BFSQAsHash as well
+                        BFSQAsHash.remove(httpText);
+                        BFSQAsHash.put(httpText, linkWeight);
+                        if(debugWG) System.out.println("****** END OF IF STATEMENT 0 ********");
+                    }
+
+                }
+
 
                 /*
                 //What about the case if you see the same link again?
@@ -426,41 +490,42 @@ public class WikiCrawler {
                 You will have to replace the H in the BFSQ and the BFSQasHash with the new weight.
                 But you will not add a new edge
                 */
-                if(alreadyAdded.contains(httpText)){
-                    Float prevWeight = BFSQAsHash.get(httpText);
-                    if(prevWeight != null){
-                        //This means that the current link httpText exists in the BFSQueue...
-                        if (prevWeight < linkWeight){
-                            //..and its weight in the queue is lesser than the current weight: linkWeight
-                            //So we remove the Tuple from the BFSQueue
-                            //The equals method that we have implemented in the Tuple class
-                            //checks for equality only by comparing the link names.
-                            //So we do not need to worry about the remaining fields as long
-                            //as the names of the links are the same
-                            //Hopefully...
-                            if(debugWG) System.out.println("******** IF STATEMENT 0 *********");
-                            if(debugWG) System.out.println("Removing:");
-                            if(debugWG) System.out.println("Link: " + httpText );
-                            if(debugWG) System.out.println("Earlier Weight: " + prevWeight );
-                            if(debugWG) System.out.println("New Weight: " + linkWeight );
-                            if(debugWG) System.out.println("Earlier Size of Q: " + BFSQueue.size());
-                            BFSQueue.remove(new Tuple(httpText, prevWeight, 0));
-                            if(debugWG) System.out.println("After removal Size of Q: " + BFSQueue.size());
-                            if(debugWG) System.out.println("Was the correct element removed? - " + !BFSQueue.contains(new Tuple(httpText, prevWeight, 0)));
 
-                            //And add a new Tuple to the BFSQueue
-                            BFSQueue.add(new Tuple(httpText, linkWeight, count));
-                            if(debugWG) System.out.println("After Adding new element Size of Q: " + BFSQueue.size());
-                            if(debugWG) System.out.println("Was the correct element Added? - " + BFSQueue.contains(new Tuple(httpText, prevWeight, 0)));
-
-                            count++;
-                            //And update the BFSQAsHash as well
-                            BFSQAsHash.remove(httpText);
-                            BFSQAsHash.put(httpText, linkWeight);
-                            if(debugWG) System.out.println("****** END OF IF STATEMENT 0 ********");
-                        }
-                    }
-                }
+//                if(alreadyAdded.contains(httpText)){
+//                    Float prevWeight = BFSQAsHash.get(httpText);
+//                    if(prevWeight != null){
+//                        //This means that the current link httpText exists in the BFSQueue...
+//                        if (prevWeight < linkWeight){
+//                            //..and its weight in the queue is lesser than the current weight: linkWeight
+//                            //So we remove the Tuple from the BFSQueue
+//                            //The equals method that we have implemented in the Tuple class
+//                            //checks for equality only by comparing the link names.
+//                            //So we do not need to worry about the remaining fields as long
+//                            //as the names of the links are the same
+//                            //Hopefully...
+//                            if(debugWG) System.out.println("******** IF STATEMENT 0 *********");
+//                            if(debugWG) System.out.println("Removing:");
+//                            if(debugWG) System.out.println("Link: " + httpText );
+//                            if(debugWG) System.out.println("Earlier Weight: " + prevWeight );
+//                            if(debugWG) System.out.println("New Weight: " + linkWeight );
+//                            if(debugWG) System.out.println("Earlier Size of Q: " + BFSQueue.size());
+//                            BFSQueue.remove(new Tuple(httpText, prevWeight, 0));
+//                            if(debugWG) System.out.println("After removal Size of Q: " + BFSQueue.size());
+//                            if(debugWG) System.out.println("Was the correct element removed? - " + !BFSQueue.contains(new Tuple(httpText, prevWeight, 0)));
+//
+//                            //And add a new Tuple to the BFSQueue
+//                            BFSQueue.add(new Tuple(httpText, linkWeight, count));
+//                            if(debugWG) System.out.println("After Adding new element Size of Q: " + BFSQueue.size());
+//                            if(debugWG) System.out.println("Was the correct element Added? - " + BFSQueue.contains(new Tuple(httpText, prevWeight, 0)));
+//
+//                            count++;
+//                            //And update the BFSQAsHash as well
+//                            BFSQAsHash.remove(httpText);
+//                            BFSQAsHash.put(httpText, linkWeight);
+//                            if(debugWG) System.out.println("****** END OF IF STATEMENT 0 ********");
+//                        }
+//                    }
+//                }
 
                 /*
                 The below if statement captures the case where:
@@ -485,6 +550,7 @@ public class WikiCrawler {
 
                     //Now we will have to check if the current link from E - J has a higher weight than
                     // the previous link from F - J
+                    /*
                     Float prevWeight = BFSQAsHash.get(httpText);
                     if(prevWeight != null){
                         //This means that the current link httpText exists in the BFSQueue...
@@ -518,12 +584,17 @@ public class WikiCrawler {
                             if(debugWG) System.out.println("****** END OF IF STATEMENT 1 ********");
                         }
                     }
+                    */
                 }
 
                 if (VISITED.size() < MAX && checkCriteria(httpText, seed)) {
-                    if (debug_edge) System.out.println(">>>>>>>>>>>>>>>>>>>>>>>>>>> Adding edge 2");
-
+                    if(debug_edge) System.out.println(">>>>>>>>>>>>>>>>>>>>>>>>>>> Adding edge 2");
+                    if(debug_edge)System.out.println("httpText: " +  httpText);
+                    if(debug_edge)System.out.println("linkWeight: " +  linkWeight);
+                    if(debug_edge)System.out.println("count: " +  count);
                     System.out.println(seed + " " + httpText);
+                    if(debug_edge) System.out.println(">>>>>>>>>>>>>>>>>>>");
+
                     VISITED.add(httpText);
                     //Since this is the first time that we are seeing this node
                     //We can simply go ahead and add this node to the BFSQueue
@@ -561,6 +632,7 @@ public class WikiCrawler {
                         //Copied and Pasted from earlier case ------
                         //Now we will have to check if the current link from E - J has a higher weight than
                         // the previous link from D - J
+                        /*
                         Float prevWeight = BFSQAsHash.get(httpText);
                         if(prevWeight != null){
                             //This means that the current link httpText exists in the BFSQueue...
@@ -595,6 +667,7 @@ public class WikiCrawler {
 
                             }
                         }
+                        */
 
                     }
                 }
@@ -614,7 +687,7 @@ public class WikiCrawler {
         boolean debug = false;
         boolean debug1 = false;
         boolean debug_s = false;
-        boolean debug_op = true;//prints out only the strings that are being added + other imp stuff
+        boolean debug_op = false;//prints out only the strings that are being added + other imp stuff -- changed
         boolean debug2 = false;//prints out the initial character before going into the while loop, fwd direction
 
         int textLimit = 18;//Controls how many words to the left and to the right you are going to focus on
